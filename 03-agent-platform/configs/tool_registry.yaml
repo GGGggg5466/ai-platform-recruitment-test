@@ -1,0 +1,7 @@
+servers:
+  - name: mcp_public
+    base_url: http://mcp_public:9001
+  - name: mcp_internal
+    base_url: http://mcp_internal:9002
+  - name: mcp_admin
+    base_url: http://mcp_admin:9003

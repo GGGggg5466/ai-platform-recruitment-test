@@ -1,0 +1,20 @@
+# LangGraph Agent tool visibility / invocation matrix
+#
+# - "visibility": which tools are shown to the agent for planning.
+# - Gateway `/tools/call` remains the FINAL enforcement layer.
+#
+# Pattern supports exact match or prefix wildcard: "mcp_internal.internal.*"
+
+roles:
+  intern:
+    visibility:
+      - "mcp_public.public.*"
+  employee:
+    visibility:
+      - "mcp_public.public.*"
+      - "mcp_internal.internal.*"
+  admin:
+    visibility:
+      - "mcp_public.public.*"
+      - "mcp_internal.internal.*"
+      - "mcp_admin.admin.*"

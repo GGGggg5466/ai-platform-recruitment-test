@@ -1,0 +1,18 @@
+# LiteLLM proxy config
+# Upstream is OpenAI-compatible (/v1/chat/completions). No upstream API key required in this assignment.
+# Configure upstream base URLs via environment variables.
+model_list:
+  - model_name: /models/Qwen3-30B-A3B-Instruct-2507-FP8
+    litellm_params:
+      model: openai//models/Qwen3-30B-A3B-Instruct-2507-FP8
+      api_base: http://mock_upstream:9100/v1
+      api_key: ${UPSTREAM_DUMMY_KEY}
+  - model_name: gemma-3-27b-it
+    litellm_params:
+      model: openai/gemma-3-27b-it
+      api_base: http://mock_upstream:9100/v1
+      api_key: ${UPSTREAM_DUMMY_KEY}
+
+# optional: helpful logs
+litellm_settings:
+  set_verbose: true
