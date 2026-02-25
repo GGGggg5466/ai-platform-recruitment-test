@@ -32,3 +32,12 @@ reports/
 .env
 *.env
 keys.env
+
+# LaTeX / log junk
+*.aux
+*.log
+
+# ===== 02-idp-pipeline runtime artifacts =====
+02-idp-pipeline/data/qdrant/
+02-idp-pipeline/data/neo4j/
+02-idp-pipeline/data/jobs/
