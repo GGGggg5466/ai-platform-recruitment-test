@@ -1,0 +1,149 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    networks: [agent_net]
+
+  # Mock upstream (OpenAI-compatible). Default .env.example points LiteLLM to this.
+  # Replace UPSTREAM_*_BASE_URL envs with your real upstreams when available.
+  mock_upstream:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ./mock_upstream/app:/app/app
+    command: bash -lc "pip install fastapi uvicorn pydantic && uvicorn app.main:app --host 0.0.0.0 --port 9100"
+    ports: ["9100:9100"]
+    networks: [agent_net]
+
+  # LiteLLM DB (for virtual keys)
+  litellm_db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=litellm
+      - POSTGRES_USER=litellm
+      - POSTGRES_PASSWORD=litellm
+    ports: ["5432:5432"]
+    volumes:
+      - litellm_pg:/var/lib/postgresql/data
+    networks: [agent_net]
+
+  # LiteLLM proxy (OpenAI-compatible)
+  litellm:
+    image: ghcr.io/berriai/litellm:main-stable
+    platform: linux/amd64
+    ports: ["4000:4000"]
+    volumes:
+      - ./litellm_config.yaml:/app/litellm_config.yaml:ro
+    environment:
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
+      - DATABASE_URL=postgresql://litellm:litellm@litellm_db:5432/litellm
+      - UPSTREAM_DUMMY_KEY=${UPSTREAM_DUMMY_KEY}
+      - UPSTREAM_OLM_BASE_URL=${UPSTREAM_OLM_BASE_URL}
+      - UPSTREAM_LLM_BASE_URL=${UPSTREAM_LLM_BASE_URL}
+      - UPSTREAM_VLM_BASE_URL=${UPSTREAM_VLM_BASE_URL}
+      - LLM_MODEL_NAME:/models/Qwen3-30B-A3B-Instruct-2507-FP8
+    command: ["--config", "/app/litellm_config.yaml", "--port", "4000", "--num_workers", "1"]
+    depends_on: [litellm_db]
+    networks: [agent_net]
+
+  # One-off bootstrap: generate 3 virtual keys and write to shared volume /keys/keys.env
+  litellm_bootstrap:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ./scripts:/app/scripts:ro
+      - litellm_keys:/keys
+    environment:
+      - LITELLM_BASE_URL=http://litellm:4000
+      - LITELLM_MASTER_KEY=${LITELLM_MASTER_KEY}
+      - LITELLM_KEYS_FILE=/keys/keys.env
+      - OLM_MODEL_NAME=${OLM_MODEL_NAME}
+      - LLM_MODEL_NAME=${LLM_MODEL_NAME}
+      - VLM_MODEL_NAME=${VLM_MODEL_NAME}
+    command: bash -lc "pip install requests && python /app/scripts/bootstrap_litellm_keys.py"
+    depends_on: [litellm]
+    networks: [agent_net]
+
+  gateway:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ./gateway/app:/app/gateway/app
+      - ./configs:/app/configs
+      - litellm_keys:/keys:ro
+    environment:
+      - REDIS_URL=${REDIS_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - REQUEST_TIMEOUT=${REQUEST_TIMEOUT}
+      - RATE_LIMIT_RPM=${RATE_LIMIT_RPM}
+      - MEMORY_TTL_SECONDS=${MEMORY_TTL_SECONDS}
+      - LITELLM_BASE_URL=http://litellm:4000
+      - DEFAULT_MODEL="/models/Qwen3-30B-A3B-Instruct-2507-FP8"
+      - LITELLM_KEYS_FILE=/keys/keys.env
+      - BUDGET_DAILY_CHARS=80000
+      - MEMORY_MAX_TURNS=4
+    command: >
+      bash -lc "pip install fastapi uvicorn redis pydantic requests pyyaml langgraph && \
+      (for i in $(seq 1 60); do [ -f /keys/keys.env ] && echo '[gateway] keys.env ready' && break; echo '[gateway] waiting for keys.env...'; sleep 1; done); \
+      uvicorn gateway.app.main:app --host 0.0.0.0 --port 8000"
+    ports: ["8000:8000"]
+    depends_on: [redis, mcp_public, mcp_internal, mcp_admin, litellm_bootstrap]
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      agent_net:
+        ipv4_address: 172.20.0.10
+
+  mcp_public:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ./mcp_servers/mcp_public/app:/app/app
+    command: bash -lc "pip install fastapi uvicorn pydantic && uvicorn app.main:app --host 0.0.0.0 --port 9001"
+    ports: ["9001:9001"]
+    networks: [agent_net]
+
+  mcp_internal:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ./mcp_servers/mcp_internal/app:/app/app
+      - sqlite_data:/app/data
+    environment:
+      - SQLITE_PATH=/app/data/app.db
+    command: bash -lc "pip install fastapi uvicorn pydantic && uvicorn app.main:app --host 0.0.0.0 --port 9002"
+    ports: ["9002:9002"]
+    networks: [agent_net]
+
+  mcp_admin:
+    image: python:3.11-slim
+    working_dir: /app
+    volumes:
+      - ./mcp_servers/mcp_admin/app:/app/app
+    command: bash -lc "pip install fastapi uvicorn pydantic && uvicorn app.main:app --host 0.0.0.0 --port 9003"
+    ports: ["9003:9003"]
+    networks: [agent_net]
+
+  # Langflow UI (for demo flow calling Gateway)
+  langflow:
+    image: langflowai/langflow:latest
+    ports: ["7860:7860"]
+    environment:
+      - LANGFLOW_HOST=0.0.0.0
+      - LANGFLOW_PORT=7860
+    depends_on: [gateway]
+    networks:
+      agent_net:
+
+networks:
+  agent_net:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  sqlite_data:
+  litellm_keys:
+  litellm_pg:
+
