@@ -41,3 +41,16 @@ keys.env
 02-idp-pipeline/data/qdrant/
 02-idp-pipeline/data/neo4j/
 02-idp-pipeline/data/jobs/
+
+# ===== 04-ai-safety-quality =====
+04-ai-safety-quality/.env
+04-ai-safety-quality/*.env
+04-ai-safety-quality/keys.env
+04-ai-safety-quality/.deepeval/
+04-ai-safety-quality/data/
+04-ai-safety-quality/reports/
+04-ai-safety-quality/results/
+04-ai-safety-quality/output/
+04-ai-safety-quality/garak_runs*/
+04-ai-safety-quality/promptfoo-results*/
+04-ai-safety-quality/node_modules/

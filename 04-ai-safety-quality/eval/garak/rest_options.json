@@ -1,0 +1,9 @@
+{
+  "uri": "http://localhost:8000/v1/garak",
+  "method": "post",
+  "headers": {"Content-Type": "application/json"},
+  "req_template": "{\"prompt\":\"$INPUT\"}",
+  "response_json": true,
+  "response_json_field": "$.text",
+  "request_timeout": 30
+}

@@ -1,0 +1,24 @@
+# eval/garak/garak.yaml
+run:
+  probe_spec: "dan.DAN_Jailbreak"
+
+plugins:
+  # 走「model plugin」路線，讓 _load_config 把參數灌進 RestGenerator
+  model_type: "rest"
+  model_name: "RestGenerator"
+
+  # ⚠️ 這裡的 key 用 rest.py 看到的 supported_params 命名
+  model_params:
+    uri: "http://localhost:8000/v1/garak"
+    method: "post"
+    headers:
+      Content-Type: "application/json"
+    # RestGenerator 用 $INPUT，不是 {{prompt}}
+    req_template: '{"prompt":"$INPUT"}'
+    response_json: true
+    response_json_field: "$.text"
+    request_timeout: 30
+
+reporting:
+  report_dir: "eval/garak/garak_runs"
+  report_prefix: "restok"

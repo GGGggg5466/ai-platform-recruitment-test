@@ -1,0 +1,31 @@
+
+description: Accuracy tests (keyword-based)
+
+providers:
+  - id: http://localhost:8000/v1/answer
+    config:
+      method: POST
+      headers:
+        Content-Type: application/json
+      body:
+        query: "{{question}}"
+        top_k: 1
+        use_retrieval: false
+
+prompts:
+  - "{{question}}"
+
+tests:
+  - description: "Accuracy: HITL flow must mention key steps"
+    vars:
+      question: "請用三點說明 HITL 流程（必須包含 needs_review、approve、reject 任兩個字）"
+    assert:
+      - type: contains-any
+        value: ["needs_review", "approve", "reject"]
+
+  - description: "Accuracy: PII masking behavior"
+    vars:
+      question: "請說明系統如何處理 email 這類 PII，並在回答中包含 [EMAIL_REDACTED]"
+    assert:
+      - type: contains
+        value: "[EMAIL_REDACTED]"
