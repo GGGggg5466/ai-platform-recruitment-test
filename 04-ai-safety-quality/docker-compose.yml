@@ -1,0 +1,8 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  # Optional: self-hosted Langfuse stack is heavier (Postgres/ClickHouse/etc).
+  # For the MVP layer-1, we keep Langfuse as an optional remote SaaS or skip.
